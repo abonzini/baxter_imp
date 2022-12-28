@@ -1,0 +1,25 @@
+Before starting:
+
+1: If there was any modification in custom.xacro or tips.xacro, they files must be updated in baxter_description folder
+2: Ensure my version of joint_limits.yaml is in the moveit config
+   This adds a few joint limits in baxter e0 and w0 to ensure the same arm pose and disabling inversion of whole arm
+3: When turning on robot, run use_my_grippers.sh, uploads our current config to baxter.
+   To verify, run rviz, there should be new tfs "X_gripper_Y_finger_inner" (4 of them)
+4: If the sensors have been recconected, the sensors ID may need to be changed in the sensors.launch parameters
+   This is in order to associate the right tf name with the correct sensor ID
+5: If change of object, change value of R in expl code, max radius in cm of expl area
+
+To start:
+
+1: Roslaunch background.launch
+2: Roslaunch planners.launch
+3: Roslaunch sensors.launch
+4: Ready to rosrun exploration codes
+NOTE: If tripod or baxter was moved, we need to re-measure the exploration "center of coordinates"
+   Run rviz once and place a finger tip on the exact center of the empty tripod base
+   Check the location of tf in rviz, write down that number
+   Update the values (in cm) in the Explore codes
+5: The code stops when about to move to point, and when contact location is measured. In order to help with supervised exploration.
+   If explorations go well, you can make it 100% automatic by changing the variable "manual" to "false"
+   MAKE SURE SOMEONE IS SUPERVISING BAXTER AND STOP THE BACKGROUND LAUNCH NODES IF THE MOVEMENT IS WEIRD
+6: Result will be found in an exploration folder somewhere

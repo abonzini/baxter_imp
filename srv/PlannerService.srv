@@ -1,0 +1,9 @@
+float64[] destination_position
+float64[] destination_orientation
+float64[] initial_position
+float64[] initial_orientation
+float64[] initial_joints
+string sensor_side
+---
+moveit_msgs/RobotTrajectory planned_trajectory
+bool success

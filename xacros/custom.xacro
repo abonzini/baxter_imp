@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="custom">
+  <xacro:macro name="finger_xacro" params="gripper_side finger_side reflect finger_tip finger_grasp">
+  <xacro:property name="finger_length" value="0.156906" scope="global"/>
+  <xacro:property name="finger_width" value="0.01725" scope="local"/>
+    <link name="${gripper_side}_gripper_${finger_side}_finger">
+      <collision>
+        <origin rpy="0 0 0" xyz="0.0 0.0 ${finger_length/2}"/>
+        <geometry>
+          <cylinder length="${finger_length}" radius="0.029"/>
+        </geometry>
+        <material name="darkgray">
+          <color rgba=".2 .2 .2 1"/>
+        </material>
+      </collision>
+    </link>
+
+   <xacro:property name="none" value="[none, false, null, empty]" scope="local"/>
+   <xacro:if value="${finger_tip in none}">
+     <xacro:property name="finger_tip" value="none" scope="local"/>
+   </xacro:if>
+   <xacro:include filename="$(find rethink_ee_description)/urdf/electric_gripper/fingers/${finger_tip}.xacro" />
+   <xacro:finger_tip_xacro parent_link="${gripper_side}_gripper_${finger_side}_finger" reflect="${reflect}" grasp="${finger_grasp}">
+       <origin rpy="0 0 ${-pi/2*(reflect+1)}" xyz="0.0 ${finger_width*reflect} ${finger_length}"/>
+   </xacro:finger_tip_xacro>
+
+  </xacro:macro>
+</robot>

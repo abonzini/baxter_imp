@@ -1,0 +1,9 @@
+#goal
+ArmTrajectory traj
+---
+#result
+bool finished_succesfully
+bool touch_detected
+---
+#feedback
+bool finished

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="rostopic" type="rostopic" name="leftcol" args="pub /robot/limb/left/suppress_collision_avoidance std_msgs/Empty -r 10" output="screen"/>
+  <node pkg="rostopic" type="rostopic" name="rightcol" args="pub /robot/limb/right/suppress_collision_avoidance std_msgs/Empty -r 10" output="screen"/>
+  <node name="rsdk_joint_trajectory_action_server_left" pkg="baxter_interface" type="joint_trajectory_action_server.py" args="--limb left --mode position" required="true" />
+  <node name="rsdk_joint_trajectory_left" pkg="baxter_imp" type="joint_trajectory_client.py" args="--limb left --wait_time 0" output="screen" />
+
+  <!-- Start the Joint Trajectory Action Server -->
+  <node name="rsdk_joint_trajectory_action_server_right" pkg="baxter_interface" type="joint_trajectory_action_server.py" args="--limb right --mode position" required="true" />
+ <!-- Run the Joint Trajectory Action -->5
+ <node name="rsdk_joint_trajectory_right" pkg="baxter_imp" type="joint_trajectory_client.py" args="--limb right --wait_time 0" output="screen" />
+  
+  <node name="gripper_action_server" pkg="baxter_interface" type="gripper_action_server.py" output="screen" />
+</launch>
