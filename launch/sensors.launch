@@ -2,8 +2,6 @@
 <launch>
 	<!-- Launch uskin publisher node-->
 	<include file="$(find arduino_magnetic_sensor)/launch/sensor_server.launch"></include>
-	<node name="right_tip_sensor" pkg="baxter_imp" type="tactile_sensor.py" args="1 tip r r" output="screen"/>
-	<node name="right_inner_sensor" pkg="baxter_imp" type="tactile_sensor.py" args="2 inner r r" output="screen"/>
-	<node name="left_tip_sensor" pkg="baxter_imp" type="tactile_sensor.py" args="3 tip l l" output="screen"/>
-	<node name="left_inner_sensor" pkg="baxter_imp" type="tactile_sensor.py" args="4 inner l l" output="screen"/>
+	<node name="left_tip_sensor" pkg="baxter_imp" type="tactile_sensor.py" args="1 tip l l" output="screen"/>
+	<node name="left_inner_sensor" pkg="baxter_imp" type="tactile_sensor.py" args="2 inner l l" output="screen"/>
 </launch>

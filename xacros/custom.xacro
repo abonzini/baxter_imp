@@ -2,7 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="custom">
   <xacro:macro name="finger_xacro" params="gripper_side finger_side reflect finger_tip finger_grasp">
   <xacro:property name="finger_length" value="0.156906" scope="global"/>
-  <xacro:property name="finger_width" value="0.01725" scope="local"/>
+  <xacro:property name="finger_width" value="0.01350" scope="local"/>
     <link name="${gripper_side}_gripper_${finger_side}_finger">
       <collision>
         <origin rpy="0 0 0" xyz="0.0 0.0 ${finger_length/2}"/>

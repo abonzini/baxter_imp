@@ -18,6 +18,8 @@ lineLengthDivision = 0.015 # Segment length limit when planning cartesian path
 plannerInterp = 0.01
 goalTolerance = 0.01 # Tolerance
 
+BaseObstacle = np.array([0.386, 0.7005, -0.3]) # Center of tripod stuff
+
 class MotionPlanner:
     def __init__(self, limb):
         self.limb = limb
@@ -34,11 +36,15 @@ class MotionPlanner:
         rospy.sleep(2)
         
         ps = PoseStamped()
-        ps.pose = self.VectorToPose([0.665, -0.0,  -0.2],[0,0,0,1])
+        ps.pose = self.VectorToPose(BaseObstacle,[0,0,0,1])
         ps.header.frame_id = "world"
         self.cube_pose = ps
         self.cube_size = (0.6,0.6,0.4)
         self.scene.add_box("tripod", self.cube_pose, size = self.cube_size)
+        [0.386, 0.7005, -0.3]
+        ps.pose = self.VectorToPose(BaseObstacle + np.array([0.0449, -0.0345, 0.25]),[0,0,0,1]) # Aprox Location of tripod handle (to avoid)
+        self.cube_size = (0.1,0.2,0.1)
+        self.scene.add_box("tripod_handle", self.cube_pose, size = self.cube_size)
         self.cube_size = (0,0,0)
 
         print("Initializing tf2 buffer")
@@ -139,7 +145,7 @@ class MotionPlanner:
         self.group.set_goal_tolerance(goalTolerance)
         (plan, fraction) = self.group.compute_cartesian_path(waypoints, plannerInterp, 0.0)
         self.group.clear_pose_targets()
-        success = (fraction>0.80) # Consider path a success if 80% i guess would make it good enough?
+        success = (fraction>=0.33) # Consider path a success if 33% since it should be coming from the right place and touch in the first third of plan
         return plan, success
     def PlanCartesianUnwrapper(self,req):
         response = PlannerServiceResponse()
@@ -161,7 +167,6 @@ class MotionPlanner:
     def PlanToPose(self, destination_position, destination_orientation, initial_joints = None):
         if not initial_joints:
             initial_joints = self.group.get_current_joint_values()
-        
         self.scene.add_box("exploration_bounds", self.cube_pose, size = self.cube_size) # Add this so it plans outside the sphere without touching anything
         rospy.sleep(0.33)
         #print("added obstacle sphere")
@@ -189,9 +194,10 @@ class MotionPlanner:
         return plan, success
     def PlanToPoseUnwrapper(self,req):
         response = PlannerServiceResponse()
-        #print("Received a request to plan. position:",req.destination_position,"orientation:",req.destination_orientation,"side:",req.sensor_side,"initial joints:",req.initial_joints)
+        print("Received a request to plan to position:",req.destination_position,"orientation:",req.destination_orientation)
         #Get real pose of end effector
         endeff_position, endeff_orientation = self.GetEndeffTarget(req.destination_position, req.destination_orientation, req.sensor_side)
+        print("End effector will go to position", endeff_position, "and orientation", endeff_orientation)
         #print("Want to go to pos:",req.destination_position,"orient", req.destination_orientation, "with", req.sensor_side)
         #print("For this, the gripper wil go to",endeff_position,"with orient",endeff_orientation)
         #input()

@@ -1,11 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-    <group ns="left_group">
-		<include file="$(find baxter_imp)/launch/demo.launch" />
-		<node name="motion_planner_node" pkg="baxter_imp" type="motion_planner.py" args="--limb left" output="screen"  />
-	</group>
-	<group ns="right_group">
-		<include file="$(find baxter_imp)/launch/demo.launch" />
-		<node name="motion_planner_node" pkg="baxter_imp" type="motion_planner.py" args="--limb right" output="screen"  />
-	</group>
+	<include file="$(find baxter_imp)/launch/demo.launch" />
+	<node name="motion_planner_node" pkg="baxter_imp" type="motion_planner.py" args="--limb left" output="screen"  />
 </launch>

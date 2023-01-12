@@ -21,251 +21,426 @@ def SpherePriorCalculator(rx, ry, rz, h):
         return prior
     return SphereField, SphereDerivField
 
-def TSPCov3D(x1,x2,hyp): # 3D Thin Plate Kernel function between d dimensional vectors x1 and x2
-    # hyp[0] is R, max distance possible
-    dist = np.linalg.norm(x1-x2)
+def CartesianDistance(x1, x2):
+    return np.linalg.norm(x1-x2)
+
+def CylindricalDistance(x1, x2):
+    dist2 = x1[0]**2 + x2[0]**2 - 2* x1[0]* x2[0]* math.cos(x1[1]-x2[1])
+    dist2 += (x1[2]-x2[2])**2
+    return math.sqrt(dist2)
+
+def TSPCov3D(dist, hyp): # 3D Thin Plate Kernel function for a distance
     dist /= hyp[0]
     if dist>1:
         return 0
     k = 2*(dist**3) - 3*(dist**2) + 1
     return k # Returns normalized values! Between 0 and 1
 
-def TSPCov_ithDerivative(i): #Base parameters
-    def TSPCov3DDerivative(x1,x2,hyp): # 3D Thin Plate Kernel function between d dimensional vectors x1 and x2
-        # hyp[0] is R, max distance possible
-        dist = np.linalg.norm(x1-x2)
-        dist /= hyp[0]
-        s_dist = x1[i]-x2[i]
-        return 6*s_dist*(dist-1)/(hyp[0]**2) # ALSO NORMALIZED BE CAREFUL
-    return TSPCov3DDerivative
-
-def Reflect(x,x0,n): #Reflect a point X into a point X' using plan of reference defined by X0 and n
+def Reflect(x,x0,n): #Reflect point(s) X into point(s) X' using plane of reference defined by X0 and n
     x0 = x0.reshape((1,-1))
     n = n.reshape((1,-1))
     t = (x-x0).dot(n.T)
     t /= np.linalg.norm(n)**2
     return x - 2 * t * n
 
-def SumSymmetryTables(Table1, P1, P2, hyp, Table2 = None, model = TSPCov3D):
+def CombineTables(Table1, idx1, idx2, model, dist, hyp, mode = "sum", Table2 = None): # The second doesn't need the reflections (only values)
     if Table2 is None:
         Table2 = Table1
-    sum = 0
-    for k in range(0,np.size(Table1,axis=2)):
-        sum += model(Table1[P1,:,k],Table2[P2,:,0],hyp)
-        if k == 0:
-            sum2 = sum
-    return sum, sum2
+    value = 0
+    for k in range(0,np.size(Table1,axis=2)): # Explore whole table 1
+        current_value = model(dist(Table1[idx1,:,k],Table2[idx2,:,0]), hyp)
+        if mode == "max":
+            value = max(value, current_value)
+        else:
+            value += current_value
+    return value
 
-def Kernel(X1, hyp, X2=None, model = TSPCov3D, sym_vector = None, vertical_rescaling = True, nosym_Out = False): #X1 and X2 are datasets of d dimensional vectors
-    #sym vector is a list with all the symmetry planeson this format: n rows of n planes, [S, X0, n] where X0 and n describe the plane and S y a number between 0 and 1 
-    Auto = False
-    if X2 is None:
-        Auto = True
-    if sym_vector is not None: #If there is symmetry info
-        planesofsymmetry = len(sym_vector[1]) # Amount of symmetry vectors
-        comb_list = itertools.product([False,True],repeat=planesofsymmetry) #Create all possible combinations of plane of symmetry
-        comb_list = [item for item in comb_list]
-        X1refs = np.zeros((*X1.shape, 2**planesofsymmetry))
-        if not Auto:
-            X2refs = np.zeros((*X2.shape, 2**planesofsymmetry))
-        for i,comb in enumerate(comb_list): #For every combination of planes
-            x1r = X1 # Points that will be reflected
-            if not Auto:
-                x2r = X2
-            for plane, involved in enumerate(comb): #I check wether the plane is involved
-                if involved is True: # If the plane is involved in this combination...
-                    x1r = Reflect(x1r,sym_vector[0],sym_vector[1][plane]) # ...I reflect point through that plane
-                    if not Auto:
-                        x2r = Reflect(x2r,sym_vector[0],sym_vector[1][plane])
-            X1refs[:,:,i] = x1r
-            if not Auto:
-                X2refs[:,:,i] = x2r
-        X1 = X1refs
-        if not Auto:
-            X2 = X2refs
-    if Auto:
-        X2 = X1
-
-    rowsX1 = np.size(X1,0) # Amount of data in X1
-    rowsX2 = np.size(X2,0) # Amount of data in X2
-    K = np.zeros((rowsX1, rowsX2)) # Create resulting K matrix
-    if nosym_Out:
-        Knon = np.zeros((rowsX1, rowsX2))
-
-    j_start = 0
-    for i in range(0, rowsX1):
-        if Auto:
-            j_start = i
-        if sym_vector is not None and vertical_rescaling:
-            ai = math.sqrt(SumSymmetryTables(X1, i, i, hyp, model=model)[0])
-        for j in range(j_start, rowsX2):
-            if sym_vector is not None:
-                k, knon = SumSymmetryTables(X1, i, j, hyp, Table2=X2, model=model)
-                if vertical_rescaling:
-                    k /= ai
-                    k /= math.sqrt(SumSymmetryTables(X2, j, j, hyp, model=model)[0])
-            else:
-                k = knon = model(X1[i,:],X2[j,:],hyp)
-            K[i][j] = k
-            if nosym_Out:
-                Knon[i][j] = knon
-            if(i!=j) and Auto: # K is a symmetric matrix
-                K[j][i] = k
-                if nosym_Out:
-                    Knon[j][i] = knon
-    if nosym_Out:
-        return K, Knon
-    else:
-        return K
+class GPX:
+    Values = None
+    SymTables = None
+    RotTables = None
+    RescaleTables = None
+    def __init__(self, X = np.empty((0,3))):
+        self.Values = X
+    def __add__(self, other):
+        result = GPX()
+        result.Values = np.vstack((self.Values, other.Values))
+        if self.SymTables is not None and other.SymTables is not None:
+            result.SymTables = np.vstack((self.SymTables, other.SymTables))
+        if self.RotTables is not None and other.RotTables is not None:
+            result.RotTables = np.vstack((self.RotTables, other.RotTables))
+        if self.RescaleTables is not None and other.RescaleTables is not None:
+            result.RescaleTables = np.vstack((self.RescaleTables, other.RescaleTables))
+        return result
+    def length(self):
+        return len(self.Values)
 
 class GP:
-    # GP Model
-    Y = None
-    X = None
-    L = None
-    hyp = None
-    model = TSPCov3D
-    sym_vector = None
-    vertical_rescaling = True
-    prior = None
+    # region Y
+    _Y = None
+    @property
+    def Y(self):
+        return self._Y
+    @Y.setter
+    def Y(self, value):
+        self._mu = None # Reset Y dependencies...
+        self._ML = None
+        self._Y = value
+    #endregion
+    # region hyp
+    _hyp = None
+    @property
+    def hyp(self):
+        return self._hyp
+    @hyp.setter
+    def hyp(self, value):
+        self.ResetAll()
+        self._hyp = value
+    #endregion
+    # region noise
+    _noise = 0
+    @property
+    def noise(self):
+        return self._noise
+    @noise.setter
+    def noise(self, value):
+        self.ResetDataDependences(full = False) # Change everything in regression but not rescaling
+        self._noise = value
+    #endregion
+    # region X
+    _X = GPX() # X data
+    def AddX(self, x):
+        auxX = GPX(x)
+        if self._K is not None: # Just need to update existing K...
+            auxKxx = self.AutoKernel(auxX) + self.noise**2 * np.eye(auxX.length())
+            auxKx = self.Kernel(self._X,auxX)
+            self._K = np.block([[self._K, auxKx], [auxKx.T, auxKxx]]) # Add new elements regarding new X to kernel K
+            self._L = None # And then reset all outputs...
+            self._ML = None
+            self._mu = None
+            self._cov = None
+        if self._X.SymTables is not None: # Update missing tables...
+            auxX.SymTables = self.UpdateSymTables(auxX)
+        if self._X.RotTables is not None:
+            auxX.RotTables = self.UpdateRotTables(auxX)
+        if self._X.RescaleTables is not None:
+            auxX.RescaleTables = self.InitializeRescaleTables(auxX)
+        if self._Kx is not None:
+            auxKx = self.Kernel(self._Xx, auxX)
+            self._Kx = np.hstack((self._Kx, auxKx))
+        self._X += auxX
+    #endregion
+    # region sym_vector
+    _SymVector = None # Reset Sym Vector
+    @property
+    def SymVector(self):
+        return self._SymVector
+    @SymVector.setter
+    def SymVector(self, value):
+        self.ResetAll()
+        self._X.SymTables = self._X.RotTables = self._Xx.SymTables = self._Xx.RotTables = None
+        self._SymVector = value
+    #endregion
+    # region rescaling
+    _VerticalRescaling = False
+    @property
+    def VerticalRescaling(self):
+        return self._VerticalRescaling
+    @VerticalRescaling.setter
+    def VerticalRescaling(self, value):
+        self.ResetAll()
+        self._VerticalRescaling = value
+    #endregion
+    # region rotation
+    _RotationSymmetry = False
+    @property
+    def RotationSymmetry(self):
+        return self._RotationSymmetry
+    @RotationSymmetry.setter
+    def RotationSymmetry(self, value):
+        self.ResetAll()
+        self._X.RotTables = self._Xx.RotTables = None
+        self._RotationSymmetry = value
+    #endregion
+    # region simple sym model...
+    _SimpleSymmetryModel = False
+    @property
+    def SimpleSymmetryModel(self):
+        return self._SimpleSymmetryModel
+    @SimpleSymmetryModel.setter
+    def SimpleSymmetryModel(self, value):
+        self.ResetAll()
+        self._SimpleSymmetryModel = value
+    #endregion
+    # region Xx
+    _Xx = GPX() # Xx data
+    def AddXx(self, x):
+        auxX = GPX(x)
+        if self._Kxx is not None: # Just need to update existing K...
+            if self._simpleKxx:
+                self._Kxx = None # If simple just re-do it, doesn't cost anything
+            else:
+                auxKxx = self.AutoKernel(auxX)
+                auxKx = self.Kernel(Xx,auxX)
+                self._K = np.block([[self._Kxx, auxKx], [auxKx.T, auxKxx]]) # Add new elements regarding new X to kernel K
+            self._mu = None # Then reset calculated outputs
+            self._cov = None
+        if self._Kx is not None: # Add elements to Kx...
+            auxKx = self.Kernel(auxX, self._X)
+            self._Kx = np.vstack((self._Kx, auxKx))
+            self._mu = None # Then reset calculated outputs
+            self._cov = None
+        if self._Xx.SymTables is not None:
+            auxX.SymTables = self.UpdateSymTables(auxX)
+        if self._Xx.RotTables is not None:
+            auxX.RotTables = self.UpdateRotTables(auxX)
+        if self._Xx.RescaleTables is not None:
+            auxX.RescaleTables = self.InitializeRescaleTables(auxX)
 
-    # Input Data
-    Kx = None
-    Kxx = None
-    Xx = None
+        self._Xx += auxX
+    #endregion
+    # region Kx
+    _Kx = None
+    @property
+    def Kx(self):
+        if self._Kx is None:
+            if self._Xx.length()>0 and self._X.length()>0:
+                if self._Xx.length() > self._X.length():
+                    self._Kx = self.Kernel(self._X, self._Xx).T
+                else:
+                    self._Kx = self.Kernel(self._Xx, self._X)
+        return self._Kx
+    @Kx.setter
+    def Kx(self, value):
+        self.ResetInputDependences(full=False)
+        self._Kx = value
+    #endregion
+    # region Kxx y simple_Kxx
+    _simpleKxx = True
+    @property
+    def SimpleKxx(self):
+        return self._simpleKxx
+    @SimpleKxx.setter
+    def SimpleKxx(self, value):
+        self._Kxx = None # Only Reset Kxx
+        self._simpleKxx = value
+    
+    _Kxx = None
+    @property
+    def Kxx(self):
+        if self._Kxx is None:
+            if self._Xx.length()>0:
+                if self._simpleKxx:
+                    n = self._Xx.length()
+                    self._Kxx = np.ones((n,n))
+                else:
+                    self._Kxx = self.AutoKernel(self._Xx)
+        return self._Kxx
+    #endregion
+    # region K
+    _K = None
+    @property
+    def K(self):
+        if self._K is None:
+            if self._X.length()>0:
+                self._K = self.AutoKernel(self._X) + self.noise**2 * np.eye(self._X.length())
+        return self._K
+    #endregion
+    # region L
+    _L = None
+    @property
+    def L(self):
+        if self._L is None:
+            self._L = np.linalg.cholesky(self.K)
+        return self._L
+    #endregion
+    # region mu
+    _mu = None
+    @property
+    def mu(self):
+        if self._mu is None:
+            self._mu = self.CalculateMu()
+        return self._mu
+    #endregion
+    # region cov
+    _cov = None
+    @property
+    def cov(self):
+        if self._cov is None:
+            self._cov = self.CalculateCov()
+        return self._cov
+    #endregion
+    # region ML
+    _ML = None
+    @property
+    def ML(self):
+        if self._ML is None:
+            self._ML = self.CalculateML()
+        return self._ML
+    #endregion
 
-    # Measurements
-    mu = None
-    cov = None
+    def ResetAll(self):
+        self.ResetInputDependences()
+        self.ResetDataDependences()
+    def ResetDataDependences(self, full = True):
+        self._mu = None
+        self._cov = None
+        self._L = None
+        self._ML = None
+        self._K = None
+        if full:
+            self._X.RescaleTables = None
+    def ResetInputDependences(self, full = True):
+        self._mu = None
+        self._cov = None
+        self._Kx = None
+        self._Kxx = None
+        if full:
+            self._Xx.RescaleTables = None
 
-    def ChangeParam(self, X, Y, L, hyp, model = TSPCov3D, sym_vector = None, vertical_rescaling = True):
-        self.X = X
-        self.Y = Y
-        self.L = L
-        self.hyp = hyp
-        self.model = model
-        self.sym_vector = sym_vector
-        self.vertical_rescaling = vertical_rescaling
-        self.ClearInputData()
+    def UpdateSymTables(self, x):
+        if x.SymTables is None: # Is there a symmetric model?
+            if self.SymVector is not None: 
+                planesofsymmetry = len(self.SymVector[1]) # Amount of symmetry planes syms (where array is [point, [syms]])
+                comb_list = itertools.product([False,True],repeat=planesofsymmetry) #Create all possible combinations of plane of symmetry
+                comb_list = [item for item in comb_list]
+                resulting_table = np.zeros((*x.Values.shape, 2**planesofsymmetry))
+                for i, comb in enumerate(comb_list): #For every combination of planes e.g. 4 planes FF TF FT TT
+                    x_reflected = x.Values # Start from the original point(s)
+                    for plane, involved in enumerate(comb): #I check wether the plane is involved
+                        if involved is True: # If the plane is involved in this combination...
+                            x_reflected = Reflect(x_reflected,self.SymVector[0],self.SymVector[1][plane]) # ...I reflect point through that plane
+                    resulting_table[:,:,i] = x_reflected
+            else:
+                resulting_table = np.zeros((*x.Values.shape, 1))
+                resulting_table[:,:,0] = x.Values
+            x.SymTables = resulting_table
+        return x.SymTables
 
-    def ClearInputData(self):
-        self.Kx = None
-        self.Xx = None
-        self.Kxx = None
+    def UpdateRotTables(self, x):
+        if x.RotTables is None: # Is there rot table?
+            if self.RotationSymmetry is not False: # Should there be?
+                self.UpdateSymTables(x) # In this case i need also to check reflections
+                resulting_table = np.zeros((x.SymTables.shape[0], x.SymTables.shape[1]-1, x.SymTables.shape[2])) # I start based on the reflected tables (even if no reflections, then will be same as x.Value)
+                for i in range(x.SymTables.shape[2]): # i as which table to copy
+                    for j in range(x.SymTables.shape[0]): # j as which point...
+                        point = x.SymTables[j,:,i].ravel()
+                        point = CartesianToRotSym(point)
+                        resulting_table[j,:,i] = point.reshape(1,-1)
+                x.RotTables = resulting_table
+        return x.RotTables
 
-        self.mu = None
-        self.cov = None
+    def InitializeRescaleTables(self, x):
+        if x.RescaleTables is None:
+            points = x.length()
+            resulting_table = np.zeros(points)
+            x.RescaleTables = resulting_table
+        return x.RescaleTables
 
-    def NewInput(self, Xx, Kx = None, Kxx = None):
-        self.ClearInputData()
-        self.Xx = Xx
-        self.Kx = Kx
-        self.Kxx = Kxx
+    def AutoKernel(self, X):
+        sizeK = X.length() # Amount of points in X
+        K = np.zeros((sizeK, sizeK)) # Create resulting K matrix
 
-    def Mu(self, model = None): #Calculate GP resulting mean over Xx
+        # Choose where are the points, and distance function (cylinder coord vs cartesian)
+        if self.RotationSymmetry:
+            input_table = self.UpdateRotTables(X)
+        else:
+            input_table = self.UpdateSymTables(X)
+        distance_function = CartesianDistance
+
+        # If using simple symmetry (no summing of values, but instead max)
+        rescaling_table = None
+        mode = "sum"
+        if self.SimpleSymmetryModel:
+            mode = "max"
+        elif self.VerticalRescaling:
+            rescaling_table = self.InitializeRescaleTables(X)
+
+        for level in range(sizeK): # Level between 0 and size-1
+            for i in range(sizeK-level): # row between 0 and sizeK-level
+                j = i + level
+                k = CombineTables(input_table, i, j, TSPCov3D, distance_function, self.hyp, mode = mode)
+                if rescaling_table is not None: # If i need to do rescaling, will read (and fill, if needed) the rescaling table
+                    if rescaling_table[i] <= 0: # If yet empty, i know I am in the diagonal so it is easy to fill (since firt pass i=j always)
+                        rescaling_table[i] = math.sqrt(k)
+                    k /= rescaling_table[i]
+                    k /= rescaling_table[j]
+                K[i][j] = K[j][i] = k
+        return K
+
+    def Kernel(self, X1, X2):
+        n1 = X1.length() # Amount of points in X1
+        n2 = X2.length()
+        K = np.zeros((n1, n2)) # Create resulting K matrix
+
+        # Choose where are the points, and distance function (cylinder coord vs cartesian)
+        if self.RotationSymmetry:
+            input_table1 = self.UpdateRotTables(X1)
+            input_table2 = self.UpdateRotTables(X2)
+        else:
+            input_table1 = self.UpdateSymTables(X1)
+            input_table2 = self.UpdateSymTables(X2)
+        distance_function = CartesianDistance
+        
+        # If using simple symmetry (no summing of values, but instead max)
+        rescaling_table1 = None
+        rescaling_table2 = None
+        mode = "sum"
+        if self.SimpleSymmetryModel:
+            mode = "max"
+        elif self.VerticalRescaling:
+            rescaling_table1 = self.InitializeRescaleTables(X1)
+            rescaling_table2 = self.InitializeRescaleTables(X2)
+
+        for i in range(n1): # row between 0 and n1
+            for j in range(n2):
+                k = CombineTables(input_table1, i, j, TSPCov3D, distance_function, self.hyp, mode = mode, Table2=input_table2)
+                if rescaling_table1 is not None and rescaling_table2 is not None: # If i need to do rescaling, will read (and fill, if needed) the rescaling table
+                    if rescaling_table1[i] <= 0:
+                        rescaling_table1[i] = math.sqrt(CombineTables(input_table1, i, i, TSPCov3D, distance_function, self.hyp, mode = mode))
+                    if rescaling_table2[j] <= 0:
+                        rescaling_table2[j] = math.sqrt(CombineTables(input_table2, j, j, TSPCov3D, distance_function, self.hyp, mode = mode))
+                    k /= rescaling_table1[i]
+                    k /= rescaling_table2[j]
+                K[i][j] = k
+        return K
+
+    def CalculateMu(self): #Calculate GP resulting mean over Xx
         if self.L is None or self.L.size == 0:
             return np.array([0.0])
-        if model == self.model or model is None:
-            model = self.model
-            Kx = self.Kx
-            mu = self.mu
-            different_model = False
-        else:
-            Kx = None # will need to reset Kx calculation if change of model (deriv)
-            mu = None
-            different_model = True
-
-        if Kx is None:
-            Kx = Kernel(self.Xx, self.hyp, X2=self.X, model=model,sym_vector=self.sym_vector, vertical_rescaling=self.vertical_rescaling)
-        if mu is None:
-            mu = Kx.dot(np.linalg.lstsq(self.L.T, np.linalg.lstsq(self.L, self.Y, rcond=None)[0],rcond=None)[0])
-            if not different_model:
-                self.Kx = Kx
-                self.mu = mu
+        mu = self.Kx.dot(np.linalg.lstsq(self.L.T, np.linalg.lstsq(self.L, self.Y, rcond=None)[0],rcond=None)[0])
         return mu
 
-    def Cov(self, simple=True, block = None): #Calculate GP resulting covar over Xx, if simple, I don't calculate or use Kxx just identity (since i assume 1 diagonal always)
-        #Block allows to take a smaller block size n since cholezky works. Will rregress cov only over first n X
-        if simple:
-            Kxx = 1
-        elif self.Kxx is None:
-            self.Kxx = Kernel(self.Xx, self.hyp, model=self.model,sym_vector=self.sym_vector, vertical_rescaling = self.vertical_rescaling)
-            Kxx = self.Kxx
-        
+    def CalculateCov(self, simple=True): #Calculate GP resulting covar over Xx, if simple, I don't calculate or use Kxx just identity (since i assume 1 diagonal always)
         if self.L is None or self.L.size == 0:
-            if simple:
-                n = self.Xx.shape[0]
-                return np.ones((n,n))
-            return Kxx
+            return self.Kxx
         
-        if block is not None:
-            X = self.X[:block,:]
-            L = self.L[:block,:block]
-        else:
-            L = self.L
-        if self.Kx is None:
-            self.Kx = Kernel(self.Xx, self.hyp, X2=self.X, model=self.model,sym_vector=self.sym_vector, vertical_rescaling=self.vertical_rescaling)
-        Kx = self.Kx
-        if block is not None:
-            Kx = Kx[:,:block]
-
-        if block is not None or self.cov is None:
-            v = np.linalg.lstsq(L, Kx.T, rcond=None)[0]
-            cov = Kxx - v.T.dot(v)
-            if block is None:
-                self.cov = cov
-        else:
-            return self.cov
+        v = np.linalg.lstsq(self.L, self.Kx.T, rcond=None)[0]
+        cov = self.Kxx - v.T.dot(v)
         return cov
 
-class GPOptHelper:
-    input_dicts = {}
+    def CalculateML(self): #Function that calculates ML. In order to optimize some hyp according to ML
+        #An optimizable wrapper needs to be created like opt_GPcov, assembling the kernel K, with the hyperparameters that need to be optimized
+        ML = 0
+        ML -= 0.5 * self.Y.T.dot(np.linalg.lstsq(self.L.T, np.linalg.lstsq(self.L, self.Y, rcond=None)[0], rcond=None)[0])
+        ML -=  0.5 * np.size(self.Y,0) * np.log(2*np.pi)
+        ML -= np.sum(np.log(np.diag(self.L)))
+        return ML
 
-    def __init__(self, X, Y, L, hyp, model = TSPCov3D, sym_vector = None, vertical_rescaling = True, prior = None, block = None):
-        self.input_dicts = {}
-        self.X = X
-        self.Y = Y
-        self.L = L
-        self.hyp = hyp
-        self.model = model
-        self.sym_vector = sym_vector
-        self.vertical_rescaling = vertical_rescaling
-        self.prior = prior
-        self.block = block
-
-    def GetGP(self,theta):
-        theta = theta.ravel()
-        input_key = theta.tobytes()
-        if input_key in self.input_dicts:
-            return self.input_dicts[input_key]
-        else:
-            gp = GP()
-            gp.ChangeParam(self.X, self.Y, self.L, self.hyp, model = self.model, sym_vector = self.sym_vector, vertical_rescaling = self.vertical_rescaling)
-            theta = CylinderToCartesian(theta).reshape((1,-1))
-            gp.NewInput(theta)
-            self.input_dicts[input_key] = gp # Will input a prior of 0 (initially)
-            return gp
-
-    def OptMu(self, theta):
-        gp = self.GetGP(theta)
-        mu = gp.Mu().ravel()[0]
-        if self.prior is not None:
-            mu += self.prior(gp.Xx).ravel()[0]
-        return mu
-
-    def OptNegCov(self, theta):
-        gp = self.GetGP(theta)
-        cov = -gp.Cov(block=self.block).ravel()
-        return cov
-
-def SphereToCartesian(coords):
-    r = coords[2]
-    s1 = math.sin(coords[0])
-    c1 = math.cos(coords[0])
-    s2 = math.sin(coords[1])
-    c2 = math.cos(coords[1])
-
-    return np.array([r*c1*s2, r*s1*s2, r*c2])
+    def GetCopy(self):
+        newGP = GP()
+        newGP._hyp = self._hyp
+        newGP._Y = self._Y
+        newGP._noise = self._noise
+        newGP._X = GPX(self._X.Values)
+        newGP._SymVector = self._SymVector
+        newGP._VerticalRescaling = self._VerticalRescaling
+        newGP._RotationSymmetry = self._RotationSymmetry
+        newGP._simpleKxx = self._simpleKxx
+        newGP._SimpleSymmetryModel = self._SimpleSymmetryModel
+        newGP._K = self._K
+        newGP._L = self._L
+        return newGP
 
 def CylinderToCartesian(coords):
      r = coords[0]
@@ -274,10 +449,11 @@ def CylinderToCartesian(coords):
 
      return np.array([r*c, r*s, coords[2]])
 
-def ML(Y, L): #Function that calculates ML. In order to optimize some hyp according to ML
-    #An optimizable wrapper needs to be created like opt_GPcov, assembling the kernel K, with the hyperparameters that need to be optimized
-    ML = 0
-    ML -= 0.5 * Y.T.dot(np.linalg.lstsq(L.T, np.linalg.lstsq(L, Y, rcond=None)[0], rcond=None)[0])
-    ML -=  0.5 * np.size(Y,0) * np.log(2*np.pi)
-    ML -= np.sum(np.log(np.diag(L)))
-    return ML
+def CartesianToCylinder(coords):
+    r = np.linalg.norm(coords[0:2])
+    angle = np.arctan2(coords[1],coords[0])
+    return np.array([r, angle, coords[2]])
+
+def CartesianToRotSym(coords):
+    r = np.linalg.norm(coords[0:2])
+    return np.array([r, coords[2]])

@@ -126,7 +126,7 @@ class MoveActionServer(object):
         print(len(goal.control), "actions received")
         print("Actions received: ", goal.control)
         # CONFIGS
-        time = [10, 5, 3.5] # Min time duration for slow and fast modes
+        time = [15, 5, 3.5] # Min time duration for slow and fast modes
         error = False
         self.contact = False
         j=0
@@ -150,7 +150,6 @@ class MoveActionServer(object):
                 sensorResetPub.publish(True)
                 print("Sensor calibration reset")
                 continue
-            
             #If i reached here it means I have a trajectory to do...
             self.current_trajectory = Trajectory(arm) # Instance Trajectory class
             rospy.on_shutdown(self.current_trajectory.stop) # Stop immediately if ctrl+c
@@ -181,8 +180,8 @@ class MoveActionServer(object):
             if order == COMMANDS.MEDIUM_MOVEMENT_ADAPTED: # Adjustable vel depending on points
                 point_ratio = len(times) / point_thresh
                 point_ratio = max(point_ratio,1) #Time_order max
-                print("For this trajectory, time wil be",time[order]*point_ratio)
                 order = COMMANDS.MEDIUM_MOVEMENT
+                print("For this trajectory, time wil be",time[order]*point_ratio)
             times *= point_ratio*time[order]/times[-1]
             times = list(times)
             #print("Times: "+str(times))

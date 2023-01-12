@@ -9,17 +9,19 @@ Before starting:
    This is in order to associate the right tf name with the correct sensor ID
 5: If change of object, change value of R in expl code, max radius in cm of expl area
 
+Calibration:
+- You can try if you want, to touch a point in the object with both tip and inner and compare the tf in rviz
+  This in order to see we have the right model.
+- IMPORTANT: If tripod has been touched (i.e. object changed or accident), please measure the new "center of reference" since soemtimes it can move by up to 1cm or more
+  To do this, measure opposite sides of object (or the orange base) and calculate the avg
+  The value needs to be modified in the ExploreNoSym.py origin variable in line 24 ( use CM!)
+
 To start:
 
 1: Roslaunch background.launch
 2: Roslaunch planners.launch
 3: Roslaunch sensors.launch
 4: Ready to rosrun exploration codes
-NOTE: If tripod or baxter was moved, we need to re-measure the exploration "center of coordinates"
-   Run rviz once and place a finger tip on the exact center of the empty tripod base
-   Check the location of tf in rviz, write down that number
-   Update the values (in cm) in the Explore codes
-5: The code stops when about to move to point, and when contact location is measured. In order to help with supervised exploration.
-   If explorations go well, you can make it 100% automatic by changing the variable "manual" to "false"
-   MAKE SURE SOMEONE IS SUPERVISING BAXTER AND STOP THE BACKGROUND LAUNCH NODES IF THE MOVEMENT IS WEIRD
-6: Result will be found in an exploration folder somewhere
+5: Make sure to stop execution if baxter is about to have an accident!
+6: Results will be found in an exploration folder in catkin_ws called exploration_auto_implicit.
+   If multiple experiments were performed, there will be many subfolders with each experiment.

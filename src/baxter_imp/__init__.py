@@ -1,1 +1,1 @@
-from baxter_imp.GPutil import SpherePriorCalculator, TSPCov_ithDerivative, Kernel, GP, GPOptHelper, SphereToCartesian, CylinderToCartesian
+from baxter_imp.GPutil import SpherePriorCalculator, CartesianDistance, CylindricalDistance, TSPCov3D, Reflect, CombineTables, GPX, GP, CylinderToCartesian, CartesianToCylinder, CartesianToRotSym
