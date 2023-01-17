@@ -251,7 +251,8 @@ class GP:
     @property
     def L(self):
         if self._L is None:
-            self._L = np.linalg.cholesky(self.K)
+            if self.K is not None:
+                self._L = np.linalg.cholesky(self.K)
         return self._L
     #endregion
     # region mu

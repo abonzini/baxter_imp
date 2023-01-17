@@ -430,8 +430,8 @@ def main():
     global r
     global h
     #mustard
-    #h = 20.0 #IN CM
-    #r = 6.5
+    h = 20.0 #IN CM
+    r = 6.5
     #Chips
     #h = 25
     #r = 5
@@ -445,8 +445,8 @@ def main():
     #h = 26.0 #IN CM
     #r = 10.0
     #Pear
-    h = 12.0 #IN CM
-    r = 4.5
+    #h = 12.0 #IN CM
+    #r = 4.5
     # Cup
     #h = 16.0 #IN CM
     #r = 12.0
