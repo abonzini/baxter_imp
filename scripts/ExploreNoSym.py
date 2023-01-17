@@ -477,45 +477,45 @@ def main():
     xx, xy, xz = np.meshgrid(bound_range_x,bound_range_y,bound_range_z, indexing='ij')
     mesh_shape = xx.shape
     Xx = np.hstack((xx.reshape(-1,1),xy.reshape(-1,1),xz.reshape(-1,1))) # Xx contains all points
+    xx_shape = xx.shape
     del xx, xy, xz, bound_range_x, bound_range_y, bound_range_z # Delete these guys since they take a lot of space!
 
     ImpSurf.AddXx(Xx)
     prior_data = prior_calc(Xx)
 
     #Planner.GoToPoint(np.array([0,0,0]), np.array([0,0,-1])) # Use to check if centered
+    #
+    #
     
     while(n_points<n_points_max): # Begin exploration
         mu = ImpSurf.mu
         mu += prior_data
-        mu = mu.reshape(xx.shape) # Organize space estimation on the corresponding axes
+        mu = mu.reshape(xx_shape) # Organize space estimation on the corresponding axes
         # Marching cubes estimation!
-        verts, faces, normals, _ = measure.marching_cubes(mu, 0) # Will get the obj estimation of marching cubes
+        verts, _, normals, _ = measure.marching_cubes(mu, 0) # Will get the obj estimation of marching cubes
         verts *= spacing # Multiply by original "scale"
         verts -= np.array([r,r,0]) # Now verts has actual, centered points
 
         # Calculate uncertainty of each vertex point
         vertGP = ImpSurf.GetCopy() # Copy everything except Xx from GP (data)
-        vertGP.AddXx(verts) # Add mesh vertices to gp estimation 
+        vertGP.AddXx(verts) # Add mesh vertices to gp estimation
         vertCov = np.diag(vertGP.cov).reshape((-1,1)) # I obtain a list of covs for each vertex
         del vertGP # To free some space...
-        face_uncertainty = vertCov[faces] # Now each polygon contains its 3 vertex uncertainties
-        face_uncertainty = np.sum(polygon_uncertainty, axis = 1)/3 # Average uncertainty per polygon
-        face_order = np.argsort(face_uncertainty, axis=0) # Will explore highest uncertainty first
-        face_center = verts[faces] # Average location of each polygon
-        face_center = np.sum(face_center, axis = 1)/3
+        vert_order = np.argsort(vertCov, axis=0) # Will explore highest uncertainty first
 
         print("Surface estimation obtained, will go to face with most uncertainty")
         finished = False
-        next_candidate = face_center.size
+        next_candidate = vertCov.shape[0]
         while not finished:
             next_candidate -= 1
             if next_candidate<0:
                 print("Fatal error?! No faces could be explored")
                 return
-            n = face_order[next_candidate] # Need to find the once with HIGHEST uncertainty
-            print("New candidate is",face_center[n])
+            n = vert_order[next_candidate] # Need to find the once with HIGHEST uncertainty
+            print("New candidate is",verts[n])
             print("Estimated Approach Gradient is",-normals[n])
-            touch_location, gradient, finished = Planner.GoToPoint(face_center[n], -normals[n], 5)  
+            input("If reached here, baxter will try to move")
+            touch_location, gradient, finished = Planner.GoToPoint(verts[n], -normals[n], 5) # We try 5 times
             if not finished:
                 print("Couldn't explore this face, will try the next")
 

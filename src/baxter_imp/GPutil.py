@@ -408,7 +408,7 @@ class GP:
 
     def CalculateMu(self): #Calculate GP resulting mean over Xx
         if self.L is None or self.L.size == 0:
-            return np.array([0.0])
+            return np.zeros((self._Xx.length(), 1))
         mu = self.Kx.dot(np.linalg.lstsq(self.L.T, np.linalg.lstsq(self.L, self.Y, rcond=None)[0],rcond=None)[0])
         return mu
 
