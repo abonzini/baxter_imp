@@ -512,10 +512,10 @@ def main():
                 print("Fatal error?! No faces could be explored")
                 return
             n = vert_order[next_candidate] # Need to find the once with HIGHEST uncertainty
-            print("New candidate is",verts[n])
-            print("Estimated Approach Gradient is",-normals[n])
+            print("New candidate is",verts[n].ravel())
+            print("Estimated Approach Gradient is",-normals[n].ravel())
             input("If reached here, baxter will try to move")
-            touch_location, gradient, finished = Planner.GoToPoint(verts[n], -normals[n], 5) # We try 5 times
+            touch_location, gradient, finished = Planner.GoToPoint(verts[n].ravel(), -normals[n].ravel(), 5) # We try 5 times
             if not finished:
                 print("Couldn't explore this face, will try the next")
 
