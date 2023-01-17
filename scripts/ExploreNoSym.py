@@ -472,7 +472,7 @@ def main():
     resolution = 17 # Resolution should be low enough to not take a lot of time, but will allow good exploration!
     bound_range_x = np.linspace(-r, r, resolution)
     bound_range_y = np.linspace(-r, r, resolution)
-    bound_range_z = np.linspace(-h, h, resolution)
+    bound_range_z = np.linspace(0, h, resolution)
     spacing = [np.diff(bound_range_x)[0],np.diff(bound_range_y)[0],np.diff(bound_range_z)[0]]
     xx, xy, xz = np.meshgrid(bound_range_x,bound_range_y,bound_range_z, indexing='ij')
     mesh_shape = xx.shape
@@ -488,7 +488,7 @@ def main():
     #
     
     while(n_points<n_points_max): # Begin exploration
-        mu = ImpSurf.mu
+        mu = np.copy(ImpSurf.mu)
         mu += prior_data
         mu = mu.reshape(xx_shape) # Organize space estimation on the corresponding axes
         # Marching cubes estimation!
