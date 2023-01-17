@@ -465,8 +465,8 @@ def main():
     prior_calc, prior_deriv_calc = SpherePriorCalculator(2*r/3,2*r/3,2*h/3, min(r,h)/2) # Assume prior ellipsoid of 2/3 r and h, h half value i guess?
     
     ImpSurf = GP()
-    gp.hyp = [2*bound_R]
-    gp.noise = 0.05 # Lower noise in implicits
+    ImpSurf.hyp = [2*bound_R]
+    ImpSurf.noise = 0.05 # Lower noise in implicits
 
     # Test points where we will sample our surface model
     resolution = 17 # Resolution should be low enough to not take a lot of time, but will allow good exploration!
@@ -485,7 +485,7 @@ def main():
     #Planner.GoToPoint(np.array([0,0,0]), np.array([0,0,-1])) # Use to check if centered
     
     while(n_points<n_points_max): # Begin exploration
-        mu = gp.mu
+        mu = ImpSurf.mu
         mu += prior_data
         mu = mu.reshape(xx.shape) # Organize space estimation on the corresponding axes
         # Marching cubes estimation!
@@ -494,7 +494,7 @@ def main():
         verts -= np.array([r,r,0]) # Now verts has actual, centered points
 
         # Calculate uncertainty of each vertex point
-        vertGP = gp.GetCopy() # Copy everything except Xx from GP (data)
+        vertGP = ImpSurf.GetCopy() # Copy everything except Xx from GP (data)
         vertGP.AddXx(verts) # Add mesh vertices to gp estimation 
         vertCov = np.diag(vertGP.cov).reshape((-1,1)) # I obtain a list of covs for each vertex
         del vertGP # To free some space...
