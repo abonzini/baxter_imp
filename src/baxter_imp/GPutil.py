@@ -77,7 +77,7 @@ class GPX:
 
 class GP:
     # region Y
-    _Y = None
+    _Y = np.empty((0,1))
     @property
     def Y(self):
         return self._Y

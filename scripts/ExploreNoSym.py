@@ -403,6 +403,31 @@ class ContactPlanner(object):
             print("Action call failed: %s"%e)
             return None
 
+def Plot_Mesh(verts, faces, vert_covs, r, h, max_cov_color = 0.2, colormap_color = 'coolwarm'):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    r += 0.5
+    h += 1
+    ax.set_xlim(-r,r)  # Set x, y, z limits
+    ax.set_ylim(-r,r)
+    ax.set_zlim(0, h)
+    ax.azim = 45
+    
+    face_uncertainty = vert_covs[faces] # Now each polygon contains 3 bordering uncertainties
+    face_uncertainty = np.amax(face_uncertainty, axis = 1)
+    face_uncertainty = np.log(face_uncertainty).ravel() # Will do logarithm, easier to visualize
+    norm = plt.Normalize(vmin=math.log(0.05**2), vmax=math.log(max_cov_color**2)) # Will normalize, min covar is 0, max is 1
+    colormap = cm.ScalarMappable(norm=norm, cmap=plt.get_cmap(colormap_color)) # Create a cmap class
+    face_uncertainty = colormap.to_rgba(face_uncertainty) # Transform cov matrix into RGB matrix colored, 1 is warm, 0 is cool
+
+    # Fancy indexing: `verts[faces]` to generate a collection of triangles
+    mesh = Poly3DCollection(verts[faces]) # Create a number of polygons made by combinations of vertexes
+    mesh.set_facecolor(polygon_uncertainty)
+    mesh.set_edgecolor('k')
+    mesh.set_linewidth(0.1)
+    ax.add_collection3d(mesh) # Add collection to plot
+    plt.show(block=False)
+
 def main():
     rospy.init_node('ExpNoSymNode')
     global show_info
@@ -482,7 +507,7 @@ def main():
 
     ImpSurf.AddXx(Xx)
     prior_data = prior_calc(Xx)
-
+    
     #Planner.GoToPoint(np.array([0,0,0]), np.array([0,0,-1])) # Use to check if centered
     #
     #
@@ -492,7 +517,7 @@ def main():
         mu += prior_data
         mu = mu.reshape(xx_shape) # Organize space estimation on the corresponding axes
         # Marching cubes estimation!
-        verts, _, normals, _ = measure.marching_cubes(mu, 0) # Will get the obj estimation of marching cubes
+        verts, faces, normals, _ = measure.marching_cubes(mu, 0) # Will get the obj estimation of marching cubes
         verts *= spacing # Multiply by original "scale"
         verts -= np.array([r,r,0]) # Now verts has actual, centered points
 
@@ -501,9 +526,11 @@ def main():
         vertGP.AddXx(verts) # Add mesh vertices to gp estimation
         vertCov = np.diag(vertGP.cov).reshape((-1,1)) # I obtain a list of covs for each vertex
         del vertGP # To free some space...
-        vert_order = np.argsort(vertCov, axis=0) # Will explore highest uncertainty first
+
+        Plot_Mesh(verts, faces, vertCov, r, h) # Plot (quickly) and continue my work
 
         print("Surface estimation obtained, will go to face with most uncertainty")
+        vert_order = np.argsort(vertCov, axis=0) # Will explore highest uncertainty first
         finished = False
         next_candidate = vertCov.shape[0]
         while not finished:
@@ -520,15 +547,18 @@ def main():
                 print("Couldn't explore this face, will try the next")
 
         if touch_location is None: # Means no touch succeeded
-            newX = face_center[n]
+            newX = verts[n]
             newY = empty_point
+            print("Didn't touch anything")
         else:
-            newX = touch_location
+            newX = touch_location.reshape((1,-1))
             newY = 0
+            print("Touched point", newX)
         newY -= - prior_calc(newX)
         ImpSurf.Y = np.vstack((ImpSurf.Y, newY))
         ImpSurf.AddX(newX)
-        
+
+        print("N points is",n_points)
         n_points += 1
         filename = subfoldername + '/' + str(n_points)
         with open(filename+'.gp', 'wb') as f:
