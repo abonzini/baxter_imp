@@ -422,7 +422,7 @@ def Plot_Mesh(verts, faces, vert_covs, r, h, max_cov_color = 0.2, colormap_color
 
     # Fancy indexing: `verts[faces]` to generate a collection of triangles
     mesh = Poly3DCollection(verts[faces]) # Create a number of polygons made by combinations of vertexes
-    mesh.set_facecolor(polygon_uncertainty)
+    mesh.set_facecolor(face_uncertainty)
     mesh.set_edgecolor('k')
     mesh.set_linewidth(0.1)
     ax.add_collection3d(mesh) # Add collection to plot
@@ -554,7 +554,7 @@ def main():
             newX = touch_location.reshape((1,-1))
             newY = 0
             print("Touched point", newX)
-        newY -= - prior_calc(newX)
+        newY -= prior_calc(newX)
         ImpSurf.Y = np.vstack((ImpSurf.Y, newY))
         ImpSurf.AddX(newX)
 
