@@ -404,15 +404,6 @@ class ContactPlanner(object):
             return None
 
 def Plot_Mesh(verts, faces, vert_covs, r, h, max_cov_color = 0.2, colormap_color = 'coolwarm'):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    r += 0.5
-    h += 1
-    ax.set_xlim(-r,r)  # Set x, y, z limits
-    ax.set_ylim(-r,r)
-    ax.set_zlim(0, h)
-    ax.azim = 45
-    
     face_uncertainty = vert_covs[faces] # Now each polygon contains 3 bordering uncertainties
     face_uncertainty = np.amax(face_uncertainty, axis = 1)
     face_uncertainty = np.log(face_uncertainty).ravel() # Will do logarithm, easier to visualize
@@ -425,6 +416,14 @@ def Plot_Mesh(verts, faces, vert_covs, r, h, max_cov_color = 0.2, colormap_color
     mesh.set_facecolor(face_uncertainty)
     mesh.set_edgecolor('k')
     mesh.set_linewidth(0.1)
+    ax.clear()
+    r += 0.5
+    h += 1
+    ax.set_title("STEP {0}".format(step))
+    ax.set_xlim(-h/2,h/2)  # Set x, y, z limits
+    ax.set_ylim(-h/2,h/2)
+    ax.set_zlim(0, h)
+    ax.azim = 45
     ax.add_collection3d(mesh) # Add collection to plot
     plt.show(block=False)
 
@@ -509,9 +508,9 @@ def main():
     prior_data = prior_calc(Xx)
     
     #Planner.GoToPoint(np.array([0,0,0]), np.array([0,0,-1])) # Use to check if centered
-    #
-    #
-    
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1, projection='3d')    
     while(n_points<n_points_max): # Begin exploration
         mu = np.copy(ImpSurf.mu)
         mu += prior_data
