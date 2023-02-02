@@ -527,6 +527,17 @@ def main():
         del vertGP # To free some space...
 
         Plot_Mesh(verts, faces, vertCov, r, h) # Plot (quickly) and continue my work
+        plot_ok = input("Do you like what you see? N/n (discards previous point)")
+        if plot_ok == 'n' or plot_ok == 'N':
+            NewImpSurf = GP() # Re does everything
+            NewImpSurf.hyp = [2*bound_R]
+            NewImpSurf.noise = 0.05
+            NewImpSurf.AddXx(Xx)
+            NewImpSurf.AddX(ImpSurf._X.Values[0:-1,:]) # Everything the same except last item in X and Y
+            NewImpSurf.Y = ImpSurf.Y[0:-1,:]
+            ImpSurf = NewImpSurf
+            n_points -= 1 # Return to old point
+            continue
 
         print("Surface estimation obtained, will go to face with most uncertainty")
         vert_order = np.argsort(vertCov, axis=0) # Will explore highest uncertainty first
