@@ -286,12 +286,14 @@ class ContactPlanner(object):
         tStamp = tfBuffer.lookup_transform("base", dest, rospy.Time(0),rospy.Duration(10.0)) # I got current point of robot where I want it
         point = [tStamp.transform.translation.x * 100, tStamp.transform.translation.y* 100, tStamp.transform.translation.z * 100] # From m to cm
         orient = [tStamp.transform.rotation.x, tStamp.transform.rotation.y, tStamp.transform.rotation.z, tStamp.transform.rotation.w]
-        #print("Measured following tf, point:", point, "Orient:", orient)
+        print("\tMeasured following tf, point:", point, "Orient:", orient)
         
+        # Removed this part, not important
+        '''
         sensor_name = "/"+dest+"_sensor_displacement"
         #print("Will check message:", sensor_name)
         sensor_disp = rospy.wait_for_message(sensor_name, SensorDisp)
-        #print("Sensor displacement is",sensor_disp)
+        print("\tSensor displacement is",sensor_disp)
         trans = [sensor_disp.x_disp, sensor_disp.y_disp, 0.0]
         rot = [0, 0, 0, 1]
         trans_matrix = ts.concatenate_matrices(ts.translation_matrix(trans), ts.quaternion_matrix(rot))
@@ -299,13 +301,13 @@ class ContactPlanner(object):
         result = np.dot(point_matrix, trans_matrix)
         res_pos = ts.translation_from_matrix(result)
         
-        print("Measured point",point,"And sensor displacement",trans,"For a resulting point of",res_pos)
+        print("\tMeasured point",point,"And sensor displacement",trans,"For a resulting point of",res_pos)
+        '''
+        point = np.array(point)
+        point -= origin
         
-        res_pos = np.array(res_pos)
-        res_pos -= origin
-        
-        print("Measured point",res_pos)
-        return res_pos
+        #print("\tMeasured point",point)
+        return point
 
     def GetBestPlan(self, point, direction):
         self.intuitive = True # Plan logically
@@ -454,11 +456,11 @@ def main():
     global r
     global h
     #mustard
-    h = 20.0 #IN CM
-    r = 6.5
+    #h = 20.0 #IN CM
+    #r = 6.5
     #Chips
-    #h = 25
-    #r = 5
+    h = 25
+    r = 5
     #SmallBot
     #h = 18.0 #IN CM
     #r = 5
