@@ -460,7 +460,7 @@ def main():
     #r = 6.5
     #Chips
     h = 25
-    r = 5
+    r = 6
     #SmallBot
     #h = 18.0 #IN CM
     #r = 5
@@ -531,20 +531,17 @@ def main():
         Plot_Mesh(verts, faces, vertCov, r, h) # Plot (quickly) and continue my work
         plot_ok = input("Do you like what you see? N/n (discards previous point)")
         if plot_ok == 'n' or plot_ok == 'N':
-            NewImpSurf = GP() # Re does everything
-            NewImpSurf.hyp = [2*bound_R]
-            NewImpSurf.noise = 0.05
-            NewImpSurf.AddXx(Xx)
-            NewImpSurf.AddX(ImpSurf._X.Values[0:-1,:]) # Everything the same except last item in X and Y
-            NewImpSurf.Y = ImpSurf.Y[0:-1,:]
-            ImpSurf = NewImpSurf
+            ImpSurf.RemoveX(1) # Remove last point
             n_points -= 1 # Return to old point
             continue
 
         print("Surface estimation obtained, will go to face with most uncertainty")
-        vert_order = np.argsort(vertCov, axis=0) # Will explore highest uncertainty first
+        vert_order = np.argsort(vertCov, axis=0) # Sort by uncertainty
+        if n_points == 0:
+            print("This is the first point so I will explore a random one!")
+            vert_order = np.random.shuffle(vert_order)
         finished = False
-        next_candidate = vertCov.shape[0]
+        next_candidate = vertCov.shape[0] # Start from last
         while not finished:
             next_candidate -= 1
             if next_candidate<0:
@@ -555,18 +552,12 @@ def main():
             print("Estimated Approach Gradient is",-normals[n].ravel())
             input("If reached here, baxter will try to move")
             touch_location, gradient, finished = Planner.GoToPoint(verts[n].ravel(), -normals[n].ravel(), 5) # We try 5 times
-            if not finished:
-                print("Couldn't explore this face, will try the next")
+            if not finished or touch_location is None:
+                print("Couldn't explore this face succesfully, will try the next")
 
-        if touch_location is None: # Means no touch succeeded
-            newX = verts[n]
-            newY = empty_point
-            print("Didn't touch anything")
-        else:
-            newX = touch_location.reshape((1,-1))
-            newY = 0
-            print("Touched point", newX)
-        newY -= prior_calc(newX)
+        newX = touch_location.reshape((1,-1))
+        print("Touched point", newX)
+        newY = -prior_calc(newX)
         ImpSurf.Y = np.vstack((ImpSurf.Y, newY))
         ImpSurf.AddX(newX)
 

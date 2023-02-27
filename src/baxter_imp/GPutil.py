@@ -4,17 +4,21 @@ import scipy.optimize
 import itertools
 import math
 
-def SpherePriorCalculator(rx, ry, rz, h):
+def SpherePriorCalculator(rx, ry, rz, h, x0=None):
     mat_r = np.diag([rx**-2, ry**-2, rz**-2])
     h = h
     def SphereField(x):
         n = x.shape[0]
+        if x0 is not None:
+            x -= x0.reshape((1,-1))
         prior = np.empty((n,1))
         for i in range(n):
             prior[i] = -h * (x[i].dot(mat_r).dot(x[i].T) - 1) / 2
         return prior
     def SphereDerivField(x):
         n = x.shape[0]
+        if x0 is not None:
+            x -= x0.reshape((1,-1))
         prior = np.empty((n,3))
         for i in range(n):
             prior[i] = -h*x.dot(mat_r)
@@ -129,6 +133,25 @@ class GP:
             auxKx = self.Kernel(self._Xx, auxX)
             self._Kx = np.hstack((self._Kx, auxKx))
         self._X += auxX
+    def RemoveX(self, N): #n=How many LAST X I'll remove?
+        nX = len(self._X.Values)-N # New number of elements in _X after this operation (will remove last N elements)
+        if self._K is not None: # Need to remove last n rows and cols...
+            self._K = self._K[:nX,:nX]
+            if self._L is not None:
+                self._L = self._L[:nX,:nX]
+            self._ML = None
+            self._mu = None
+            self._cov = None
+        if self._X.SymTables is not None: # Remove elements pertaining to last data
+            self._X.SymTables = self._X.SymTables[:nX,:,:]
+        if self._X.RotTables is not None:
+            self._X.RotTables = self._X.RotTables[:nX,:,:]
+        if self._X.RescaleTables is not None:
+            self._X.RescaleTables = self._X.RescaleTables[:,nX]
+        if self._Kx is not None:
+            self._Kx = self._Kx[:,:nX]
+        if self._Y is not None:
+            self._Y = self._Y[:nX,:]
     #endregion
     # region sym_vector
     _SymVector = None # Reset Sym Vector
@@ -152,7 +175,7 @@ class GP:
         self._VerticalRescaling = value
     #endregion
     # region rotation
-    _RotationSymmetry = False
+    _RotationSymmetry = None
     @property
     def RotationSymmetry(self):
         return self._RotationSymmetry
@@ -326,7 +349,7 @@ class GP:
                 for i in range(x.SymTables.shape[2]): # i as which table to copy
                     for j in range(x.SymTables.shape[0]): # j as which point...
                         point = x.SymTables[j,:,i].ravel()
-                        point = CartesianToRotSym(point)
+                        point = CartesianToRotSym(point, self.RotationSymmetry[0], self.RotationSymmetry[1])
                         resulting_table[j,:,i] = point.reshape(1,-1)
                 x.RotTables = resulting_table
         return x.RotTables
@@ -455,6 +478,10 @@ def CartesianToCylinder(coords):
     angle = np.arctan2(coords[1],coords[0])
     return np.array([r, angle, coords[2]])
 
-def CartesianToRotSym(coords):
-    r = np.linalg.norm(coords[0:2])
-    return np.array([r, coords[2]])
+def CartesianToRotSym(x,x0,v):
+    x0 = x0.ravel()
+    v = v.ravel()
+    v_norm = np.linalg.norm(v)
+    d = np.linalg.norm(np.cross(x-x0,v))/v_norm
+    l = np.dot((x-x0,v))/v_norm
+    return np.array([d,l])
