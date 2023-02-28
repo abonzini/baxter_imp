@@ -539,7 +539,7 @@ def main():
         vert_order = np.argsort(vertCov, axis=0) # Sort by uncertainty
         if n_points == 0:
             print("This is the first point so I will explore a random one!")
-            vert_order = np.random.shuffle(vert_order)
+            np.random.shuffle(vert_order)
         finished = False
         next_candidate = vertCov.shape[0] # Start from last
         while not finished:
