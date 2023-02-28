@@ -553,6 +553,7 @@ def main():
             input("If reached here, baxter will try to move")
             touch_location, gradient, finished = Planner.GoToPoint(verts[n].ravel(), -normals[n].ravel(), 5) # We try 5 times
             if not finished or touch_location is None:
+                finished = False
                 print("Couldn't explore this face succesfully, will try the next")
 
         newX = touch_location.reshape((1,-1))
