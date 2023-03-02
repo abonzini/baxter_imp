@@ -10,6 +10,7 @@ def SpherePriorCalculator(rx, ry, rz, h, x0=None):
     def SphereField(x):
         n = x.shape[0]
         if x0 is not None:
+            x = np.copy(x)
             x -= x0.reshape((1,-1))
         prior = np.empty((n,1))
         for i in range(n):
@@ -21,6 +22,7 @@ def SpherePriorCalculator(rx, ry, rz, h, x0=None):
             x -= x0.reshape((1,-1))
         prior = np.empty((n,3))
         for i in range(n):
+            x = np.copy(x)
             prior[i] = -h*x.dot(mat_r)
         return prior
     return SphereField, SphereDerivField
@@ -135,6 +137,7 @@ class GP:
         self._X += auxX
     def RemoveX(self, N): #n=How many LAST X I'll remove?
         nX = len(self._X.Values)-N # New number of elements in _X after this operation (will remove last N elements)
+        self._X.Values = self._X.Values[:nX,:]
         if self._K is not None: # Need to remove last n rows and cols...
             self._K = self._K[:nX,:nX]
             if self._L is not None:
@@ -483,5 +486,5 @@ def CartesianToRotSym(x,x0,v):
     v = v.ravel()
     v_norm = np.linalg.norm(v)
     d = np.linalg.norm(np.cross(x-x0,v))/v_norm
-    l = np.dot((x-x0,v))/v_norm
+    l = np.dot(x-x0,v)/v_norm
     return np.array([d,l])
