@@ -40,7 +40,7 @@ def TSPCov3D(dist, hyp): # 3D Thin Plate Kernel function for a distance
     if dist>1:
         return 0
     k = 2*(dist**3) - 3*(dist**2) + 1
-    return k # Returns normalized values! Between 0 and 1
+    return k
 
 def Reflect(x,x0,n): #Reflect point(s) X into point(s) X' using plane of reference defined by X0 and n
     x0 = x0.reshape((1,-1))
@@ -135,7 +135,11 @@ class GP:
             auxKx = self.Kernel(self._Xx, auxX)
             self._Kx = np.hstack((self._Kx, auxKx))
         self._X += auxX
-    def RemoveX(self, N): #n=How many LAST X I'll remove?
+    def RemoveX(self, N=None): #n=How many LAST X I'll remove?
+        if N is None:
+            self._X = GPX()
+            self.ResetAll()
+            return
         nX = len(self._X.Values)-N # New number of elements in _X after this operation (will remove last N elements)
         self._X.Values = self._X.Values[:nX,:]
         if self._K is not None: # Need to remove last n rows and cols...
@@ -258,7 +262,7 @@ class GP:
             if self._Xx.length()>0:
                 if self._simpleKxx:
                     n = self._Xx.length()
-                    self._Kxx = np.ones((n,n))
+                    self._Kxx = TSPCov3D(0,self.hyp) * np.ones((n,n))
                 else:
                     self._Kxx = self.AutoKernel(self._Xx)
         return self._Kxx
@@ -392,6 +396,7 @@ class GP:
                         rescaling_table[i] = math.sqrt(k)
                     k /= rescaling_table[i]
                     k /= rescaling_table[j]
+                    k *= TSPCov3D(0,self.hyp)
                 K[i][j] = K[j][i] = k
         return K
 
@@ -429,6 +434,7 @@ class GP:
                         rescaling_table2[j] = math.sqrt(CombineTables(input_table2, j, j, TSPCov3D, distance_function, self.hyp, mode = mode))
                     k /= rescaling_table1[i]
                     k /= rescaling_table2[j]
+                    k *= TSPCov3D(0,self.hyp)
                 K[i][j] = k
         return K
 
@@ -443,16 +449,16 @@ class GP:
             return self.Kxx
         
         v = np.linalg.lstsq(self.L, self.Kx.T, rcond=None)[0]
-        cov = self.Kxx - v.T.dot(v)
+        cov = self.noise**2 * np.eye(self._Xx.length()) + self.Kxx - v.T.dot(v)
         return cov
 
     def CalculateML(self): #Function that calculates ML. In order to optimize some hyp according to ML
         #An optimizable wrapper needs to be created like opt_GPcov, assembling the kernel K, with the hyperparameters that need to be optimized
-        ML = 0
-        ML -= 0.5 * self.Y.T.dot(np.linalg.lstsq(self.L.T, np.linalg.lstsq(self.L, self.Y, rcond=None)[0], rcond=None)[0])
-        ML -=  0.5 * np.size(self.Y,0) * np.log(2*np.pi)
-        ML -= np.sum(np.log(np.diag(self.L)))
-        return ML
+        Fit = - 0.5 * self.Y.T.dot(np.linalg.lstsq(self.L.T, np.linalg.lstsq(self.L, self.Y, rcond=None)[0], rcond=None)[0])
+        Match = - np.sum(np.log(np.diag(self.L)))
+        Const = -  0.5 * np.size(self.Y,0) * np.log(2*np.pi)
+        print("ML debug. Fit:",Fit,"Match:",Match,"Const:",Const)
+        return Fit + Match + Const
 
     def GetCopy(self):
         newGP = GP()

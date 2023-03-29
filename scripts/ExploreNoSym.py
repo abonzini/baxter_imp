@@ -49,6 +49,8 @@ class ContactPlanner(object):
 
     last_calculated_direction = None
     calculated_traj = None
+
+    h = 0
     
     def LineSphereIntersection(self, line_point, line_dir, sphere_radius): # Will return 2 distances, one to exit sphere and another to enter sphere
         #Sphere assumed with origin on 0,0,0
@@ -172,6 +174,12 @@ class ContactPlanner(object):
             orient = self.CalculateSidewaysInnerOrient(direction,arm)
         elif side == "inner_vert":
             orient = self.CalculateUprightInnerOrient(direction)
+            side = "inner"
+        elif side=="inner_-x":
+            orient = ts.quaternion_from_euler(-math.pi/2,0,0)
+            side = "inner"
+        elif side=="inner_y":
+            orient = ts.quaternion_from_euler(0,0,0)
             side = "inner"
         else:
             orient = self.CalculateTipOrient(direction,arm)
@@ -325,14 +333,30 @@ class ContactPlanner(object):
         print("xy angle",xy_angle,"angle_z",angle_z,"xy_mag",xy_mag)
 
         possible_plans = [] # Tuple with part direction and whether it is the intuitive sie of the robot (inner vs outer)
-        if angle_z > 0: # If movement is trending upwards...
-            direction[2] = 0 # will touch from side
-            direction = direction / np.linalg.norm(direction)
-            print("Will come from side")
-        if angle_z < -45: # If planned comng from top at 45 degree, I will touch with tip
+        if angle_z > 45 and point[2]>h/2: # Movement clearly upwards and on the upper half of object (to avoid tripod collision)...
+            other_point = np.copy(point)
+            other_point[2] -= 3.5 # Starts 3.5cm downwards
+            if point[0] > point[1]: #if x>y
+                orient = "inner_-x"
+                other_direction = np.array([-1,0,0])
+            else:
+                orient = "inner_y"
+                other_direction = np.array([0,1,0])
+            possible_plans += [(orient, np.array([0,0,1]),True, other_point, other_direction)]
+        elif angle_z < -45 and point[2] < h/2: # If vertical but lower... same as the other one option
+            other_point = np.copy(point)
+            other_point[2] += 3.5 # Starts 3.5cm downwards
+            if point[0] > point[1]: #if x>y
+                orient = "inner_-x"
+                other_direction = np.array([-1,0,0])
+            else:
+                orient = "inner_y"
+                other_direction = np.array([0,1,0])
+            possible_plans += [(orient, np.array([0,0,-1]),True, other_point, other_direction)]
+        elif angle_z < -45: # If planned coming from top at 45 degree, I will touch with tip
             print("Z angle is downwards", angle_z, "so tip is preferred")
-            possible_plans += [("tip",np.array([0,0,-1]),True)] # First option coming from above
-            possible_plans += [("tip",direction,True)] # Or then maybe coming with the real direction
+            possible_plans += [("tip",np.array([0,0,-1]),True,None,None)] # First option coming from above
+            possible_plans += [("tip",direction,True,None,None)] # Or then maybe coming with the real direction
         #elif (h - point[2]) < finger_length: # I'll do upright if I can
             #print("Will use upright finger orientation since h is",h, "and desired point at",point[2])
             #direction[2] = 0 # will touch from side
@@ -340,20 +364,26 @@ class ContactPlanner(object):
             #interm_point  = point - (direction * 2) # Move 2 cm to the back
             #interm_direction = np.array([0,0,-1]) # Coming from up
             #plan_success = self.Plan(point,direction,"left","inner_vert", interm_point = interm_point, interm_direction = interm_direction)
-        elif 90 >= abs(xy_angle) >= 20: # This area is better to touch with tip
-            print("XY angle is", xy_angle, "so tip is preferred before side")
-            possible_plans += [("tip",direction,True)]
-            possible_plans += [("inner",direction,True)]
-        else: # Other area better with inner
-            print("Side preferred")
-            possible_plans += [("inner",direction,True)] # Will try everything
-            possible_plans += [("inner",direction,False)]
-            if 110 >= abs(xy_angle):
-                possible_plans += [("tip",direction,True)]
+        else: # Area of normal touches now
+            if angle_z > 0: # If movement is trending upwards but not up...
+                direction[2] = 0 # will touch from side
+                direction = direction / np.linalg.norm(direction)
+                print("Will come from side")
+            if 90 >= abs(xy_angle) >= 20: # This area is better to touch with tip
+                print("XY angle is", xy_angle, "so tip is preferred before side")
+                possible_plans += [("tip",direction,True,None,None)]
+                possible_plans += [("inner",direction,True,None,None)]
+            else: # Other area better with inner
+                print("Side preferred")
+                possible_plans += [("inner",direction,True,None,None)] # Will try everything
+                possible_plans += [("inner",direction,False,None,None)]
+                if 110 >= abs(xy_angle):
+                    possible_plans += [("tip",direction,True,None,None)]
         
         for possible_plan in possible_plans:
             self.intuitive = possible_plan[2]
-            plan_success = self.Plan(point,possible_plan[1],"left",possible_plan[0])
+            #remember that self.Plan(point, direction, arm, side, interm_point = None, interm_direction = None)
+            plan_success = self.Plan(point,possible_plan[1],"left",possible_plan[0], interm_point=possible_plan[3], interm_direction=possible_plan[4])
             if plan_success: break
         self.last_calculated_direction = possible_plan[1]
         # Return all plans in the prioritized order and the new, modified direction
@@ -459,8 +489,11 @@ def main():
     #h = 20.0 #IN CM
     #r = 6.5
     #Chips
-    h = 25
-    r = 6
+    #h = 25
+    #r = 6
+    #Assymetric Thing
+    h = 22
+    r = 11
     #SmallBot
     #h = 18.0 #IN CM
     #r = 5
@@ -477,6 +510,7 @@ def main():
     #h = 16.0 #IN CM
     #r = 12.0
     
+    Planner.h = h # Set the height of bounds so planner knows the size
     # Send bounds to motion planner to move around sphere avoiding collisions
     bounds = SetBoundsMsg()
     bounds.sphere_center = list(np.array(origin)/100)
