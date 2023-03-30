@@ -488,12 +488,15 @@ def main():
     #mustard
     #h = 20.0 #IN CM
     #r = 6.5
+    #sigma = 0.05
     #Chips
     #h = 25
     #r = 6
+    #sigma = 0.06
     #Assymetric Thing
     h = 22
     r = 11
+    sigma = 0.05
     #SmallBot
     #h = 18.0 #IN CM
     #r = 5
@@ -503,6 +506,7 @@ def main():
     #Jar
     #h = 26.0 #IN CM
     #r = 10.0
+    #sigma = 0.1
     #Pear
     #h = 12.0 #IN CM
     #r = 4.5
@@ -526,7 +530,7 @@ def main():
     
     ImpSurf = GP()
     ImpSurf.hyp = [2*bound_R]
-    ImpSurf.noise = 0.05 # Lower noise in implicits
+    ImpSurf.noise = sigma
 
     # Test points where we will sample our surface model
     resolution = 17 # Resolution should be low enough to not take a lot of time, but will allow good exploration!
