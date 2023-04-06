@@ -494,9 +494,9 @@ def main():
     #r = 6
     #sigma = 0.06
     #Assymetric Thing
-    h = 22
-    r = 11
-    sigma = 0.05
+    #h = 22
+    #r = 11
+    #sigma = 0.05
     #SmallBot
     #h = 18.0 #IN CM
     #r = 5
@@ -513,6 +513,10 @@ def main():
     # Cup
     #h = 16.0 #IN CM
     #r = 12.0
+    # Weight thing
+    h = 20
+    r = 6
+    sigma = 0.05
     
     Planner.h = h # Set the height of bounds so planner knows the size
     # Send bounds to motion planner to move around sphere avoiding collisions
