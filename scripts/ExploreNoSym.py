@@ -514,8 +514,12 @@ def main():
     #h = 16.0 #IN CM
     #r = 12.0
     # Weight thing
-    h = 20
-    r = 6
+    #h = 20
+    #r = 6
+    #sigma = 0.05
+    #brown box
+    h = 13.0
+    r = 6.0
     sigma = 0.05
     
     Planner.h = h # Set the height of bounds so planner knows the size
