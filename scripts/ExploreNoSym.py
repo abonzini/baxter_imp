@@ -518,8 +518,12 @@ def main():
     #r = 6
     #sigma = 0.05
     #brown box
-    h = 13.0
-    r = 6.0
+    #h = 13.0
+    #r = 6.0
+    #sigma = 0.1
+    #bottle
+    h = 32
+    r = 6
     sigma = 0.05
     
     Planner.h = h # Set the height of bounds so planner knows the size
