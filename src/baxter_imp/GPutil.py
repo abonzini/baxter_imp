@@ -178,8 +178,9 @@ class GP:
         return self._VerticalRescaling
     @VerticalRescaling.setter
     def VerticalRescaling(self, value):
-        self.ResetAll()
-        self._VerticalRescaling = value
+        if value!=self._VerticalRescaling:
+            self.ResetAll()
+            self._VerticalRescaling = value
     #endregion
     # region rotation
     _RotationSymmetry = None
@@ -457,7 +458,7 @@ class GP:
         Fit = - 0.5 * self.Y.T.dot(np.linalg.lstsq(self.L.T, np.linalg.lstsq(self.L, self.Y, rcond=None)[0], rcond=None)[0])
         Match = - np.sum(np.log(np.diag(self.L)))
         Const = -  0.5 * np.size(self.Y,0) * np.log(2*np.pi)
-        print("ML debug. Fit:",Fit,"Match:",Match,"Const:",Const)
+        #print("ML debug. Fit:",Fit,"Match:",Match,"Const:",Const)
         return Fit + Match + Const
 
     def GetCopy(self):
