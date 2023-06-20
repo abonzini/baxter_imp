@@ -677,6 +677,7 @@ def main():
                 SymGP.VerticalRescaling = v_res
                 SymGP.RotationSymmetry = rot_vec
                 SymGP.SymVector = sym_vec
+                print("NEW SYMMETRY FOUND, rescaling:", v_res, "Rotation:", rot_vec, "Reflection:", sym_vec)
                 SymGP.AddXx(Xx)
                 small_r = 2*min(r,h)/3
                 prior_calc2, _ = SpherePriorCalculator(small_r,small_r,small_r,small_r, x0=centroid)
@@ -706,7 +707,7 @@ def main():
             vertGP.AddXx(verts) # Add mesh vertices to gp estimation
             vertCovsym = np.diag(vertGP.cov).reshape((-1,1)) # I obtain a list of covs for each vertex
             if sym_factor:
-                vertCov -= vertCovsym # sym_factor calculated
+                vertCov = vertCov - vertCovsym # sym_factor calculated
             else:
                 vertCov = vertCovsym # Pure symmetry variance
 
