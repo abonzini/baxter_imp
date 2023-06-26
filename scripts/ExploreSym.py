@@ -628,50 +628,53 @@ def main():
             v_res = False
             sym_vec = None
             rot_vec = None
-            res = opt.direct(opt_GP_ML_angle(SymImpSurf,centroid, mode='rot'),angle_bounds, maxfun=maxtries)
-            if -res.fun > MLnon: # Means a rotation sym has been found!
-                sym_found = True
-                rot_v = SphereToVector(res.x[0],res.x[1])
-                print("A rotation symmetry with a vector of", rot_v)
-                rot_vec = [centroid, rot_v]
-                # Now I need to check if orthogonal sym plane also works
-                SymImpSurf2 = SymImpSurf.GetCopy()
-                SymImpSurf2.VerticalRescaling = True
-                SymImpSurf2.SymVector = [centroid, [rot_v]]
-                if SymImpSurf2.ML > -res.fun: # Means the rot sym also has a sym plane!!
-                    sym_vec = SymImpSurf2.SymVector
-                    v_res = True
-                    print("Also a symmetry plane, with vectors:", SymImpSurf2.SymVector)
-                    del SymImpSurf2, SymImpSurf
-            else:
-                SymImpSurf.RotationSymmetry = None
-                res = opt.direct(opt_GP_ML_angle(SymImpSurf,centroid),angle_bounds, maxfun=maxtries)
-                if -res.fun > MLnon: # Means a plane of symmetry has been found!
+            try:
+                res = opt.direct(opt_GP_ML_angle(SymImpSurf,centroid, mode='rot'),angle_bounds, maxfun=maxtries)
+                if -res.fun > MLnon: # Means a rotation sym has been found!
                     sym_found = True
-                    plane1 = SphereToVector(res.x[0],res.x[1])
-                    SymImpSurf.SymVector[1][0] = plane1
-                    v_res = True
-                    sym_vec = SymImpSurf.SymVector
-                    ML1 = -res.fun
-                    print("Sym plane detected with vector of ",SymImpSurf.SymVector)
-                    plane2 = res.x + np.array([math.pi/2,0]) # Vector 2 is an orthogonal one
-                    plane2 = SphereToVector(plane2[0],plane2[1])
-                    w = np.cross(plane2, plane1)
-                    angle_bounds = [[0,math.pi]]
-                    SymImpSurf.SymVector[1] += [None]
-                    res = opt.direct(opt_GP_ML_second_angle(SymImpSurf,plane2,w),angle_bounds, maxfun=maxtries)
-                    if -res.fun > ML1: # Second sym plane...
-                        c = math.cos(res.x[0])
-                        s = math.sin(res.x[0])
-                        SymImpSurf.SymVector[1][1] = plane2*c + w*s
-                        print("Also another plane described as", SymImpSurf.SymVector)
+                    rot_v = SphereToVector(res.x[0],res.x[1])
+                    print("A rotation symmetry with a vector of", rot_v)
+                    rot_vec = [centroid, rot_v]
+                    # Now I need to check if orthogonal sym plane also works
+                    SymImpSurf2 = SymImpSurf.GetCopy()
+                    SymImpSurf2.VerticalRescaling = True
+                    SymImpSurf2.SymVector = [centroid, [rot_v]]
+                    if SymImpSurf2.ML > -res.fun: # Means the rot sym also has a sym plane!!
+                        sym_vec = SymImpSurf2.SymVector
+                        v_res = True
+                        print("Also a symmetry plane, with vectors:", SymImpSurf2.SymVector)
+                        del SymImpSurf2, SymImpSurf
+                else:
+                    SymImpSurf.RotationSymmetry = None
+                    res = opt.direct(opt_GP_ML_angle(SymImpSurf,centroid),angle_bounds, maxfun=maxtries)
+                    if -res.fun > MLnon: # Means a plane of symmetry has been found!
+                        sym_found = True
+                        plane1 = SphereToVector(res.x[0],res.x[1])
+                        SymImpSurf.SymVector[1][0] = plane1
+                        v_res = True
                         sym_vec = SymImpSurf.SymVector
-                        plane3 = np.cross(SymImpSurf.SymVector[1][0],SymImpSurf.SymVector[1][1])
-                        SymImpSurf.SymVector[1] += [plane3]
-                        SymImpSurf.SymVector = SymImpSurf.SymVector
-                        if SymImpSurf.ML > -res.fun: # A third plane...
+                        ML1 = -res.fun
+                        print("Sym plane detected with vector of ",SymImpSurf.SymVector)
+                        plane2 = res.x + np.array([math.pi/2,0]) # Vector 2 is an orthogonal one
+                        plane2 = SphereToVector(plane2[0],plane2[1])
+                        w = np.cross(plane2, plane1)
+                        angle_bounds = [[0,math.pi]]
+                        SymImpSurf.SymVector[1] += [None]
+                        res = opt.direct(opt_GP_ML_second_angle(SymImpSurf,plane2,w),angle_bounds, maxfun=maxtries)
+                        if -res.fun > ML1: # Second sym plane...
+                            c = math.cos(res.x[0])
+                            s = math.sin(res.x[0])
+                            SymImpSurf.SymVector[1][1] = plane2*c + w*s
                             print("Also another plane described as", SymImpSurf.SymVector)
-                            sym_vec = SymImpSurf.SymVector # Finally a possible third plane
+                            sym_vec = SymImpSurf.SymVector
+                            plane3 = np.cross(SymImpSurf.SymVector[1][0],SymImpSurf.SymVector[1][1])
+                            SymImpSurf.SymVector[1] += [plane3]
+                            SymImpSurf.SymVector = SymImpSurf.SymVector
+                            if SymImpSurf.ML > -res.fun: # A third plane...
+                                print("Also another plane described as", SymImpSurf.SymVector)
+                                sym_vec = SymImpSurf.SymVector # Finally a possible third plane
+            except Exception as e:
+                print("Sym finding failed at some point, with error",e, "Will continue as usual")
             if sym_found:
                 SymGP = ImpSurf.GetCopy() # Create a new symmetrical GP
                 SymGP.VerticalRescaling = v_res
