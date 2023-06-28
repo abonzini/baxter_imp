@@ -20,6 +20,9 @@ from baxter_imp.msg import ArmTrajectory, MoveAndContactFeedback, MoveAndContact
 from baxter_imp.msg import *
 from baxter_imp.srv import *
 from skimage import measure
+import trimesh
+import copy
+import time
 
 origin = [38.6, 70.05, 7.5] # "Origin" of tripod base measured by hand using rviz on orange piece center in cms.
 origin_angle = 45+13.75 # 45 degree is angle of arm and 13.75 the place where tripod is
@@ -616,6 +619,9 @@ def main():
             closest_index = np.argmin(closest_points, axis=1)
             closest_dist = np.amin(closest_points, axis=1)
             closest_points = verts[closest_index] # Get closest points and where
+            closest_points = np.vstack((closest_points, [0,0,-1])) # Add one point in the bottom (to indicate it's empty)
+            closest_dist = np.append(closest_dist, 2) # Asssume it's a distance of ~1
+
             SymImpSurf = ImpSurf.GetCopy()
             SymImpSurf.Y = np.zeros(len(SymImpSurf._X.Values)).reshape(-1,1)
             a=0.2
@@ -624,7 +630,7 @@ def main():
             SymImpSurf.AddX(closest_points) # Add everything to SymImpSurf
 
             sym_found = False # Will be true if a sym has been found
-            MLnon = ImpSurf.ML
+            MLnon = SymImpSurf.ML
             v_res = False
             sym_vec = None
             rot_vec = None
@@ -636,14 +642,12 @@ def main():
                     print("A rotation symmetry with a vector of", rot_v)
                     rot_vec = [centroid, rot_v]
                     # Now I need to check if orthogonal sym plane also works
-                    SymImpSurf2 = SymImpSurf.GetCopy()
-                    SymImpSurf2.VerticalRescaling = True
-                    SymImpSurf2.SymVector = [centroid, [rot_v]]
-                    if SymImpSurf2.ML > -res.fun: # Means the rot sym also has a sym plane!!
-                        sym_vec = SymImpSurf2.SymVector
+                    SymImpSurf.VerticalRescaling = True
+                    SymImpSurf.SymVector = [centroid, [rot_v]]
+                    if SymImpSurf.ML > -res.fun: # Means the rot sym also has a sym plane!!
+                        sym_vec = SymImpSurf.SymVector
                         v_res = True
-                        print("Also a symmetry plane, with vectors:", SymImpSurf2.SymVector)
-                        del SymImpSurf2, SymImpSurf
+                        print("Also a symmetry plane, with vectors:", SymImpSurf.SymVector)
                 else:
                     SymImpSurf.RotationSymmetry = None
                     res = opt.direct(opt_GP_ML_angle(SymImpSurf,centroid),angle_bounds, maxfun=maxtries)
@@ -652,21 +656,20 @@ def main():
                         plane1 = SphereToVector(res.x[0],res.x[1])
                         SymImpSurf.SymVector[1][0] = plane1
                         v_res = True
-                        sym_vec = SymImpSurf.SymVector
+                        sym_vec = copy.deepcopy(SymImpSurf.SymVector)
                         ML1 = -res.fun
                         print("Sym plane detected with vector of ",SymImpSurf.SymVector)
                         plane2 = res.x + np.array([math.pi/2,0]) # Vector 2 is an orthogonal one
                         plane2 = SphereToVector(plane2[0],plane2[1])
                         w = np.cross(plane2, plane1)
-                        angle_bounds = [[0,math.pi]]
                         SymImpSurf.SymVector[1] += [None]
-                        res = opt.direct(opt_GP_ML_second_angle(SymImpSurf,plane2,w),angle_bounds, maxfun=maxtries)
+                        res = opt.direct(opt_GP_ML_second_angle(SymImpSurf,plane2,w),[angle_bounds[0]], maxfun=maxtries)
                         if -res.fun > ML1: # Second sym plane...
                             c = math.cos(res.x[0])
                             s = math.sin(res.x[0])
                             SymImpSurf.SymVector[1][1] = plane2*c + w*s
                             print("Also another plane described as", SymImpSurf.SymVector)
-                            sym_vec = SymImpSurf.SymVector
+                            sym_vec = copy.deepcopy(SymImpSurf.SymVector)
                             plane3 = np.cross(SymImpSurf.SymVector[1][0],SymImpSurf.SymVector[1][1])
                             SymImpSurf.SymVector[1] += [plane3]
                             SymImpSurf.SymVector = SymImpSurf.SymVector
