@@ -757,7 +757,7 @@ def main():
         with open(filename+'.gp', 'wb') as f:
             if sym_found:
                 pickle.dump(SymGP, f)
-                with open(filename+'.nosym.gp', 'wb') as g:
+                with open(filename+'.gpnon', 'wb') as g:
                     pickle.dump(ImpSurf, g)
             else:
                 pickle.dump(ImpSurf, f)
